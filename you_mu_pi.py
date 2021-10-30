@@ -31,6 +31,7 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 PROMPT = f"{bcolors.BOLD}{bcolors.OKGREEN}YouMuPi>>> {bcolors.ENDC}{bcolors.ENDC}"
+MUSIC_DIR = ""
 
 """
 	Depends on:
@@ -58,7 +59,7 @@ def setup_dependencies():
 	os.system("sudo apt-get install kid3-cli")
 
 	print("Done adding dependencies")
-	print("\nRestarting script...\n\n")
+	print("Restarting script...\n\n")
 
 	os.execv(sys.executable, ["python3"]+sys.argv)
 
@@ -117,6 +118,43 @@ def download_songs():
 		############### PARSE ####################
 
 
+def download_album(album_data, artist=None, genre=None):
+
+	album_playlist_id = album_data['audioPlaylistId']
+	# In case user was wrong
+	album = album_data['title']
+	year = album_data['year']
+
+	if artist is None:
+		artist = album_data['artists'][0]['name']
+
+	os.chdir(MUSIC_DIR)
+	path = os.path.join(artist, album.replace("/", "_"))
+	os.makedirs(path, exist_ok=True)
+	os.chdir(path)
+
+	print("Downloading...")
+	os.system(f"yt-dlp -x --audio-format mp3 https://music.youtube.com/playlist?list={album_playlist_id}")
+	print("Download complete!")
+
+	print("Cleaning filenames and setting track tags...")
+	audio_files = [file for file in os.listdir() if file.endswith(".mp3")]
+	audio_files.sort(key = os.path.getctime)
+
+	i = 1
+	for file in audio_files:
+		new_file = re.sub(" \\[[A-Za-z0-9_-]*\\]\\.mp3", ".mp3", file)
+		os.rename(file, new_file)
+		subprocess.call(['kid3-cli', '-c', f'select "{new_file}"', '-c', f'set title "{new_file.rstrip(".mp3").replace("_", "/")}"', '-c', f'set "track number" {str(i)}', '-c', 'save', '-c', 'select none'])
+		i = i+1
+
+	print("Setting common album tags...")
+	if genre is None or genre == "": 
+		genre = accept_genre()
+	subprocess.call(['kid3-cli', '-c', 'select *.mp3', '-c', f'set artist "{artist}"', '-c', f'set album "{album}"', '-c', f'set genre "{genre}"', '-c', f'set date {year}', '-c', 'save', '-c', 'select none'])
+
+	print(f"File setup done for {album} by {artist}")
+	print()
 
 def download_albums():
 	print()
@@ -152,7 +190,7 @@ def download_albums():
 		except:
 			try:
 				album, artist = query.split("_")
-				genre = ""
+				genre = None
 			except:
 				print("Bad input query: " + query + "\nSkipping...\n")
 				continue
@@ -161,51 +199,111 @@ def download_albums():
 		album_matches = [x for x in results if x['category'].lower() == 'albums' or x['category'].lower() == 'top results']
 
 		if(len(album_matches) == 0):
-			print("OOPS! Could not find " + album + " by " + artist + ". Ensure spelling is correct. Continuing...")
+			print(f"OOPS! Could not find {album} by {artist}. Ensure spelling is correct. Skipping...")
 			print()
 			continue
 
-		album_data = album_matches[0]
-		album_data = ytmusic.get_album(album_data['browseId'])
-		album_playlist_id = album_data['audioPlaylistId']
+		best_result_data = album_matches[0]
+		album_data = ytmusic.get_album(best_result_data['browseId'])
 
-		# In case user was wrong
-		album = album_data['title']
-		year = album_data['year']
-
-		os.chdir(music_dir)
-		path = os.path.join(artist, album.replace("/", "_"))
-		os.makedirs(path, exist_ok=True)
-		os.chdir(path)
-
-		print("Downloading...")
-		os.system(f"yt-dlp -x --audio-format mp3 https://music.youtube.com/playlist?list={album_playlist_id}")
-		print("Download complete!")
-
-		print("Cleaning filenames and setting track tags...")
-		audio_files = [file for file in os.listdir() if file.endswith(".mp3")]
-		audio_files.sort(key = os.path.getctime)
-
-		i = 1
-		for file in audio_files:
-			new_file = re.sub(" \\[[A-Za-z0-9_-]*\\]\\.mp3", ".mp3", file)
-			os.rename(file, new_file)
-			subprocess.call(['kid3-cli', '-c', f'select "{new_file}"', '-c', f'set title "{new_file.rstrip(".mp3").replace("_", "/")}"', '-c', f'set "track number" {str(i)}', '-c', 'save', '-c', 'select none'])
-			i = i+1
-
-		print("Setting common album tags...")
-		if genre is None or genre == "": 
-			genre = accept_genre()
-		subprocess.call(['kid3-cli', '-c', 'select *.mp3', '-c', f'set artist "{artist}"', '-c', f'set album "{album}"', '-c', f'set genre "{genre}"', '-c', f'set date {year}', '-c', 'save', '-c', 'select none'])
-
-		print(f"File setup done for {album} by {artist}")
-		print()
+		download_album(album_data)
 
 	print("All albums downloaded! Enjoy")
 
 
+def download_discography():
+
+	print()
+	print("Enter your download queries one by one in the form 'Artist Name_Album Name_Genre Code (or) Genre' (Album and Genre fields are optional. They are used as keywords and nothing else)'\n Enter i to setup dependencies\n Enter d when done\n Enter h to show available genre codes\n Enter q to quit")
+	print(f"{bcolors.FAIL}This utility does not infer genre of the albums unless a genre is provided, in which case it is applied to all albums{bcolors.ENDC}")
+	queries = []
+	while True:
+		i = input(PROMPT)
+		if i == "i":
+			setup_dependencies()
+		elif i == "d": 
+			break
+		elif i == "q":
+			quit()
+		elif i == "h":
+			print_genres()
+		else:
+			queries.append(i)
+
+	print()
+	print("Queued " + str(len(queries)) + " artists to be downloaded. Proceed? (y for yes, any key for no)")
+	confirm = input(PROMPT)
+
+	if not confirm.lower() == 'y':
+		print("User interrupt. Exiting...")
+		quit()
+
+	for query in queries:
+		query_list = query.split("_")
+		try:
+			artist = query_list[0]
+		except:
+			print(f"Bad input query: {query}\nSkipping...\n")
+			continue
+
+		if len(query_list) > 2:
+			genre = query_list[2] if genre not in genre_codes else genre_codes[query_list[2]]
+		else:
+			genre = None
+
+		results = ytmusic.search(query = artist, filter = "artists")
+		artist_matches = [x for x in results if x['category'].lower() == 'artists' or x['category'].lower() == 'top results']
+
+		if(len(artist_matches) == 0):
+			print(f"OOPS! Could not find {artist}. Ensure spelling is correct. Skipping...")
+			print()
+			continue
+
+		best_result_data = artist_matches[0]
+		# In case user was wrong
+		artist = best_result_data['artist']
+
+		artist_partial_data = ytmusic.get_artist(best_result_data['browseId'])
+
+		try:
+			params = artist_partial_data["albums"]["params"]
+			browse = artist_partial_data["albums"]["browseId"]
+
+			artist_discog = ytmusic.get_artist_albums(browse, params)
+		except:
+			artist_discog = artist_partial_data["albums"]["results"]
+
+		print()
+		print("Collected albums: ")
+		i = 0
+		for entry in artist_discog:
+			print(f"  {i}.\t{entry['title']} -- {entry['year']}")
+			i += 1
+		print("Enter a space-separated list of numbers to specify albums to download, enter 'ALL' for all albums")
+		s = input(PROMPT)
+		if s == "ALL":
+			choices = range(len(artist_discog))
+		else:
+			choices = re.sub(r"\s+", " ", s).split(" ")
+		print()
+
+		for selection in choices:
+			try:
+				entry = artist_discog[int(selection)]
+			except:
+				print(f"Invalid selection number {selection}. Skipping...")
+				continue
+
+			album_data = ytmusic.get_album(entry['browseId'])
+			download_album(album_data, artist, genre)
+
+	print(f"Selected albums by {artist} downloaded! Enjoy")
+
+
+
 def main():
-	ytmusic = YTMusic()
+
+	global MUSIC_DIR
 
 	print(f"{bcolors.HEADER}Welcome to YouMuPi!{bcolors.ENDC}\nThis is a work in progress and so far allows downloading albums by a simple query and tags the downloaded mp3 files automatically with:")
 	print(" - Title")
@@ -218,14 +316,17 @@ def main():
 	print(f"{bcolors.FAIL}Piracy is illegal. Use this script at your own risk. I do not condone piracy in any way whatsoever.{bcolors.ENDC}")
 	print()
 
-	print("Enter full music directory")
-	music_dir = input(PROMPT)
-	print()
-
+	print("Enter full music directory or enter 'i' to setup dependencies")
+	MUSIC_DIR = input(PROMPT)
+	if MUSIC_DIR == "i":
+		setup_dependencies()
+	elif not MUSIC_DIR:
+		MUSIC_DIR = "/home/jeff/Music"
 
 	while True:
 		print()
 		print("What do you want to do?")
+		print("q for quit")
 		print("1. Download songs")
 		print("2. Download albums")
 		print("3. Download artist discography")
@@ -236,9 +337,12 @@ def main():
 			download_songs()
 		elif ch == "2":
 			download_albums()
+		elif ch == "3":
+			download_discography()
 		else:
 			print("Unsupported option :( Please retry")
 
 
 if __name__=="__main__":
+	ytmusic = YTMusic()
 	main()
