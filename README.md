@@ -1,1 +1,2 @@
-# YouMuPi\nOptimized YouTube Music Piracy. Enough said.
+# YouMuPi
+Optimized YouTube Music Piracy. Enough said.
