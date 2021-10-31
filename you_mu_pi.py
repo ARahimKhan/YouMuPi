@@ -46,7 +46,7 @@ def setup_dependencies():
 	os.system("pip3 install ytmusicapi")
 
 	if hasattr(sys, 'getwindowsversion'):
-		print(f"{bcolors.WARNING}Looks like you're a Windows user. You will need to manually install the following dependencies for now")
+		print(f"{bcolors.FAIL}Not yet properly implemented for Windows so you will have to download a few packages and set environment variables yourself{bcolors.ENDC}")
 		print(f"  yt-dlp\thttps://github.com/yt-dlp/yt-dlp#release-files")
 		print(f"  kid3-cli\thttps://kid3.kde.org/#download{bcolors.ENDC}")
 		return
@@ -71,21 +71,37 @@ def print_genres():
 	print("If your genre is not listed, just provide your genre as it is. If you don't provide any genre, you will be prompted to once an album download is complete. So provide NONE as genre code in all your queries, for uninterrupted downloads")
 	print()
 
+def print_help_data(d):
+	return
+
 def accept_genre():
+	print()
 	print("Enter the genre or genre code\n Enter h to view available genre codes")
 	while True:
 		genre = input(PROMPT)
 		if genre == "h":
 			print_genres()
-		else: 
+		else:
 			return genre if genre not in genre_codes else genre_codes[genre]
 
 
 def download_songs():
 	print()
 	print("Enter your download query keywords as\n command --parameter1 'value1' 'value2' --parameter2 'value1' 'value2' ...")
-	print("Commands:\n Show genre codes: 'h'\n Exact song data is known: 'song'\n Choose from search results: 'surf'")
-	print("Parameters:\n Song Name: '-t' \n Album Name - '-a'\n Artist Name - '-s'\n Year - '-y'\n Genre (or genre code) - '-g'\n Skip download confirmation - '-nc'\n Other keywords - '-k' (only for 'surf')")
+	print("""Commands:
+ Show genre codes: 'h'
+ Exact song data is known: 'song'
+ Choose from search results: 'surf'""")
+
+	print("""Parameters:
+ Song Name: '-t'
+ Album Name - '-a'
+ Artist Name - '-s'
+ Year - '-y'
+ Genre (or genre code) - '-g'
+ Skip download confirmation - '-nc' (only for 'song')
+ Other keywords - '-k' (only for 'surf')""")
+
 	print(f"{bcolors.WARNING}Maximum two different values of same parameter type are allowed in case of 'surf' and maximum of one in case of 'song'{bcolors.ENDC} Extra will be ignored")
 	print(f"{bcolors.WARNING}Maximum 10 words in the values are allowed in total{bcolors.ENDC}")
 	print(f"{bcolors.FAIL}'$', '-' sign in any value is not allowed. Drop the $ sign or replace it{bcolors.ENDC}")
@@ -100,7 +116,8 @@ def download_songs():
 			continue
 
 		valid = True
-		############### TOKENS ####################
+
+		############### TOKENIZE ####################
 		query_params = query.split(" -")
 		for i in range(len(query_params)):
 			param = query_params[i]
@@ -116,6 +133,7 @@ def download_songs():
 		if valid: break
 
 		############### PARSE ####################
+		############### TODO ####################
 
 
 def download_album(album_data, artist=None, genre=None):
@@ -149,7 +167,7 @@ def download_album(album_data, artist=None, genre=None):
 		i = i+1
 
 	print("Setting common album tags...")
-	if genre is None or genre == "": 
+	if genre is None or genre == "":
 		genre = accept_genre()
 	subprocess.call(['kid3-cli', '-c', 'select *.mp3', '-c', f'set artist "{artist}"', '-c', f'set album "{album}"', '-c', f'set genre "{genre}"', '-c', f'set date {year}', '-c', 'save', '-c', 'select none'])
 
@@ -164,7 +182,7 @@ def download_albums():
 		i = input(PROMPT)
 		if i == "i":
 			setup_dependencies()
-		elif i == "d": 
+		elif i == "d":
 			break
 		elif i == "q":
 			quit()
@@ -213,20 +231,57 @@ def download_albums():
 
 def download_discography():
 
+	def help_queries():
+		print('Enter i to setup dependencies')
+		print('Enter d when done')
+		print('Enter g to show available genre codes')
+		print('Enter q to quit')
+		print('Enter b to go back to main menu')
+		return
+
+	def help_downloads():
+		d = {
+		"select/deselect" : {
+			"-A" : "select/deselect all songs/albums selected in total",
+			"-a": "select/deselect all songs/albums in current navigation",
+			"-l num1 num2 num3-num4 num5-num6": "select/deselect song/album numbers that are specified or are in ranges specified and in current navigation",
+		},
+		"nav album-number" : "navigate to album",
+		"nav back" : "navigate back to album listing",
+		"show album-number" : "show album songs and other data",
+		"set" : {
+			"-g genre/genre-code" : "sets genre for the selected albums, other albums remain unchanged",
+			"--artwork link" : "downloads artwork from link (unimplemented)"
+		},
+		"download" : "downloads selected songs from selected albums",
+		"selection" : "shows the selection tree"
+		}
+
+		print_help_data(d)
+
 	print()
-	print("Enter your download queries one by one in the form 'Artist Name_Album Name_Genre Code (or) Genre' (Album and Genre fields are optional. They are used as keywords and nothing else)'\n Enter i to setup dependencies\n Enter d when done\n Enter h to show available genre codes\n Enter q to quit")
+	print("Enter your download queries one by one in the form '[Artist Name]_[Genre Code(or)Genre]_[Keywords separated by spaces]' without the square brackets.\n (Genre field is optional. Keywords are used as search keywords and nothing else)")
+	print('Enter help for more info')
+	print('Enter d when done')
 	print(f"{bcolors.FAIL}This utility does not infer genre of the albums unless a genre is provided, in which case it is applied to all albums{bcolors.ENDC}")
+	print(f"{bcolors.FAIL}Finding singles is not currently supported. Use the album downloader instead by choosing 2 on the main menu{bcolors.ENDC}")
+	print("Enter b to go back to main menu")
+
 	queries = []
 	while True:
 		i = input(PROMPT)
 		if i == "i":
 			setup_dependencies()
-		elif i == "d": 
+		elif i == "d":
 			break
+		elif i == "b":
+			return
 		elif i == "q":
 			quit()
-		elif i == "h":
+		elif i == "g":
 			print_genres()
+		elif i == 'help':
+			help_queries()
 		else:
 			queries.append(i)
 
@@ -246,13 +301,17 @@ def download_discography():
 			print(f"Bad input query: {query}\nSkipping...\n")
 			continue
 
-		if len(query_list) > 2:
-			genre = query_list[2] if genre not in genre_codes else genre_codes[query_list[2]]
+		if len(query_list) > 1:
+			genre = query_list[1] if query_list[1] not in genre_codes else genre_codes[query_list[1]]
 		else:
 			genre = None
 
-		results = ytmusic.search(query = artist, filter = "artists")
-		artist_matches = [x for x in results if x['category'].lower() == 'artists' or x['category'].lower() == 'top results']
+		keywords = ""
+		if len(query_list) > 2:
+			keywords = " ".join(query_list[2:])
+
+		results = ytmusic.search(query = f"{artist} {keywords}", filter = "artists")
+		artist_matches = [x for x in results if x['category'].lower() in ['artists', 'top results']]
 
 		if(len(artist_matches) == 0):
 			print(f"OOPS! Could not find {artist}. Ensure spelling is correct. Skipping...")
@@ -274,17 +333,24 @@ def download_discography():
 			artist_discog = artist_partial_data["albums"]["results"]
 
 		print()
-		print("Collected albums: ")
+		print(f"Collected albums for {artist}: ")
 		i = 0
 		for entry in artist_discog:
 			print(f"  {i}.\t{entry['title']} -- {entry['year']}")
 			i += 1
-		print("Enter a space-separated list of numbers to specify albums to download, enter 'ALL' for all albums")
-		s = input(PROMPT)
-		if s == "ALL":
-			choices = range(len(artist_discog))
-		else:
-			choices = re.sub(r"\s+", " ", s).split(" ")
+		print("Basic usage: Enter a space-separated list of numbers to specify albums to download, enter 'ALL' for all albums")
+		print("Advanced usage: Enter 'help' for all commands (currently unsupported)")
+
+		while True:
+			s = input(PROMPT)
+			if s == "ALL":
+				choices = xrange(len(artist_discog))
+				break
+			elif s == "help":
+				help_downloads()
+			else:
+				choices = re.sub(r"\s+", " ", s).split(" ")
+				break
 		print()
 
 		for selection in choices:
@@ -312,7 +378,7 @@ def main():
 	print(" - Album")
 	print(" - Year")
 	print(" - Genre")
-	print("\nOn the TODO list is support for browsing songs on the command line, selecting specific songs to download, downloading entire artist discogs, downloading album art and maybe cleaning up existing untagged music files")
+	print("\nOn the TODO list is support for browsing songs on the command line, downloading album art and maybe cleaning up existing untagged music files")
 	print(f"{bcolors.FAIL}Piracy is illegal. Use this script at your own risk. I do not condone piracy in any way whatsoever.{bcolors.ENDC}")
 	print()
 
@@ -326,19 +392,19 @@ def main():
 	while True:
 		print()
 		print("What do you want to do?")
-		print("q for quit")
-		print("1. Download songs")
+		print("1. Download songs (currently unsupported)")
 		print("2. Download albums")
 		print("3. Download artist discography")
+		print("Enter q to quit")
 
 		ch = input(PROMPT)
 
-		if ch == "1":
-			download_songs()
-		elif ch == "2":
+		if ch == "2":
 			download_albums()
 		elif ch == "3":
 			download_discography()
+		elif ch == "q":
+			quit()
 		else:
 			print("Unsupported option :( Please retry")
 
