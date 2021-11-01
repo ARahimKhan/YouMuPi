@@ -46,17 +46,18 @@ def setup_dependencies():
 	os.system("pip3 install ytmusicapi")
 
 	if hasattr(sys, 'getwindowsversion'):
+		####### WINDOWS DEPENDENCIES #######
 		print(f"{bcolors.FAIL}Not yet properly implemented for Windows so you will have to download a few packages and set environment variables yourself{bcolors.ENDC}")
 		print(f"  yt-dlp\thttps://github.com/yt-dlp/yt-dlp#release-files")
 		print(f"  kid3-cli\thttps://kid3.kde.org/#download{bcolors.ENDC}")
 		return
-
-	os.system("sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp")
-	os.system("sudo chmod a+rx /usr/local/bin/yt-dlp")
-
-	os.system("sudo add-apt-repository ppa:ufleisch/kid3")
-	os.system("sudo apt-get update")
-	os.system("sudo apt-get install kid3-cli")
+	else:
+		####### LINUX DEPENDENCIES #######
+		os.system("sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp")
+		os.system("sudo chmod a+rx /usr/local/bin/yt-dlp")
+		os.system("sudo add-apt-repository ppa:ufleisch/kid3")
+		os.system("sudo apt-get update")
+		os.system("sudo apt-get install kid3-cli")
 
 	print("Done adding dependencies")
 	print("Restarting script...\n\n")
