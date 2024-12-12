@@ -172,7 +172,7 @@ def download_album(album_data, artist=None, genre=None):
 	for file in audio_files:
 		new_file = re.sub(" \\[[A-Za-z0-9_-]*\\]\\.mp3", ".mp3", file)
 		os.rename(file, new_file)
-		subprocess.call(['kid3-cli', '-c', f'select "{new_file}"', '-c', f'set title "{new_file.rstrip(".mp3").replace("_", "/")}"', '-c', f'set "track number" {str(i)}', '-c', 'save', '-c', 'select none'])
+		subprocess.call(['kid3-cli', '-c', f'select "{new_file}"', '-c', f'set title "{(new_file[::-1].replace(".mp3"[::-1], "", 1)[::-1]).replace("_", "/")}"', '-c', f'set "track number" {str(i)}', '-c', 'save', '-c', 'select none'])
 		i = i+1
 
 	print("Setting common album tags...")
